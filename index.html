@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>USDA PSD — Global Balance Sheet Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600&display=swap');
+:root{
+  --bg:#080b0f;--s1:#0e1218;--s2:#141923;--s3:#1a2130;
+  --border:#1e2530;--border2:#253040;
+  --gold:#e8c547;--blue:#4fc3f7;--green:#6fcf97;--red:#eb5757;
+  --purple:#bb86fc;--orange:#ffb347;--teal:#38d9d9;
+  --text:#dde4f0;--muted:#5a6882;--muted2:#3d4a60;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh}
+header{background:var(--s1);border-bottom:1px solid var(--border);padding:18px 32px;display:flex;justify-content:space-between;align-items:flex-end;position:sticky;top:0;z-index:100}
+.eyebrow{font-family:'DM Mono',monospace;font-size:.56rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+h1{font-family:'Bebas Neue',sans-serif;font-size:2.1rem;letter-spacing:4px;background:linear-gradient(120deg,var(--blue),var(--purple) 40%,var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.live-badge{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--muted2)}
+.live-dot.on{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.controls{background:var(--s2);border-bottom:1px solid var(--border);padding:12px 32px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.ctrl{display:flex;flex-direction:column;gap:4px}
+.ctrl label{font-family:'DM Mono',monospace;font-size:.56rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+select{background:var(--s1);border:1px solid var(--border);color:var(--text);padding:7px 26px 7px 10px;font-family:'DM Mono',monospace;font-size:.72rem;border-radius:3px;cursor:pointer;outline:none;transition:border-color .15s;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6882'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+select[multiple]{padding:5px 10px;background-image:none;min-height:88px}
+select[multiple] option{padding:3px 6px;background:var(--s1);color:var(--text)}
+select[multiple] option:checked{background:rgba(79,195,247,.18);color:var(--blue)}
+select:hover,select:focus{border-color:var(--blue)}
+.btn{background:var(--blue);color:#000;border:none;padding:9px 22px;font-family:'DM Mono',monospace;font-size:.72rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border-radius:3px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{background:#7ae0ff;transform:translateY(-1px)}
+.btn:disabled{background:var(--muted2);color:var(--muted);cursor:not-allowed;transform:none}
+.btn-ghost{background:var(--s2);color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);background:var(--s3)}
+.status{padding:6px 32px;font-family:'DM Mono',monospace;font-size:.63rem;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);min-height:30px;color:var(--muted)}
+.status.loading{color:var(--gold)}.status.ok{color:var(--green)}.status.err{color:var(--red)}
+.prog-bar{height:2px;background:var(--border)}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));transition:width .4s;width:0}
+.debug-box{margin:0 32px;background:#080c12;border:1px solid var(--border);border-top:none;padding:8px 14px;font-family:'DM Mono',monospace;font-size:.62rem;color:#607590;line-height:1.65;display:none;max-height:200px;overflow-y:auto}
+.debug-box.show{display:block}
+.main{padding:20px 32px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.card-head{padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border)}
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:2px}
+.card-sub{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:3px;line-height:1.5}
+.chip{font-family:'DM Mono',monospace;font-size:.54rem;padding:3px 9px;border-radius:2px;border:1px solid var(--border);color:var(--muted);background:var(--s2);white-space:nowrap}
+.chip.gold{color:var(--gold);border-color:rgba(232,197,71,.3);background:rgba(232,197,71,.06)}
+.chip.blue{color:var(--blue);border-color:rgba(79,195,247,.3);background:rgba(79,195,247,.06)}
+.chip.purple{color:var(--purple);border-color:rgba(187,134,252,.3);background:rgba(187,134,252,.06)}
+.chip.orange{color:var(--orange);border-color:rgba(255,179,71,.3);background:rgba(255,179,71,.06)}
+.chip.teal{color:var(--teal);border-color:rgba(56,217,217,.3);background:rgba(56,217,217,.06)}
+/* KPI */
+.kpi-strip{display:flex;overflow-x:auto}
+.kpi-cell{flex:1 0 155px;padding:14px 16px;border-right:1px solid var(--border);position:relative}
+.kpi-cell:last-child{border-right:none}
+.kpi-cell::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi-cell.kpi-pos::before{background:linear-gradient(90deg,var(--green),transparent)}
+.kpi-cell.kpi-neg::before{background:linear-gradient(90deg,var(--red),transparent)}
+.kpi-cell.kpi-neu::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.5rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.kpi-val{font-family:'DM Mono',monospace;font-size:1.12rem;font-weight:500;line-height:1.1}
+.kpi-unit{font-family:'DM Mono',monospace;font-size:.49rem;color:var(--muted2);margin-top:3px}
+.kpi-delta{display:inline-flex;align-items:center;gap:3px;font-family:'DM Mono',monospace;font-size:.54rem;padding:2px 7px;border-radius:2px;margin-top:6px}
+.kpi-delta.pos{color:var(--green);background:rgba(111,207,151,.1);border:1px solid rgba(111,207,151,.2)}
+.kpi-delta.neg{color:var(--red);background:rgba(235,87,87,.1);border:1px solid rgba(235,87,87,.2)}
+.kpi-delta.neu{color:var(--muted);background:rgba(90,104,130,.1);border:1px solid rgba(90,104,130,.2)}
+/* Intelligence */
+.intel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 18px}
+@media(max-width:1100px){.intel-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.intel-grid{grid-template-columns:1fr}}
+.intel-card{background:var(--s2);border:1px solid var(--border);border-radius:3px;padding:12px 14px;position:relative;overflow:hidden}
+.intel-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.intel-card.bullish::before{background:linear-gradient(90deg,var(--green),transparent)}
+.intel-card.bearish::before{background:linear-gradient(90deg,var(--red),transparent)}
+.intel-card.neutral::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.intel-card.warning::before{background:linear-gradient(90deg,var(--orange),transparent)}
+.intel-badge{display:inline-flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:.48rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:7px}
+.intel-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.bullish .intel-dot{background:var(--green)}.bearish .intel-dot{background:var(--red)}
+.neutral .intel-dot{background:var(--blue)}.warning .intel-dot{background:var(--orange)}
+.intel-headline{font-size:.77rem;font-weight:600;color:var(--text);line-height:1.45;margin-bottom:5px}
+.intel-detail{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);line-height:1.6}
+.intel-numbers{display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.intel-num-val{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text)}
+.intel-num-lbl{font-family:'DM Mono',monospace;font-size:.46rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:1px}
+.card-footnote{padding:7px 18px;font-family:'DM Mono',monospace;font-size:.52rem;color:var(--muted2);border-top:1px solid var(--border);background:rgba(8,11,15,.4);letter-spacing:.5px;line-height:1.65}
+/* Attr tabs */
+.attr-tabs-wrap{padding:10px 18px;display:flex;flex-wrap:wrap;gap:5px;border-bottom:1px solid var(--border)}
+.atab{font-family:'DM Mono',monospace;font-size:.56rem;padding:4px 11px;border-radius:2px;border:1px solid var(--border);background:var(--s2);color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+.atab:hover{border-color:var(--blue);color:var(--text)}
+.atab.active{background:var(--blue);color:#000;border-color:transparent;font-weight:500}
+.chart-wrap{padding:12px 16px 16px;height:400px;position:relative}
+.mini-chart-block{background:var(--s2);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.mini-chart-title{padding:6px 12px;font-family:'DM Mono',monospace;font-size:.57rem;color:var(--muted);border-bottom:1px solid var(--border);letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-chart-title strong{color:var(--text);font-weight:500}
+.mini-chart-wrap{height:200px;position:relative;padding:4px 8px 8px}
+.chart-wrap.h320{height:320px}
+.chart-wrap.h280{height:280px}
+/* Balance sheet table */
+.tbl-outer{overflow-x:auto;overflow-y:auto;max-height:580px}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+thead{position:sticky;top:0;z-index:10}
+thead tr.grp th{background:var(--bg);font-family:'DM Mono',monospace;font-size:.5rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;padding:5px 10px;border-bottom:1px solid var(--border2);border-right:1px solid var(--border)}
+thead tr.grp th:first-child{text-align:left}
+thead tr.hdr th{background:var(--s2);font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);text-align:right;padding:6px 10px;border-bottom:2px solid var(--border2);border-right:1px solid var(--border)}
+thead tr.hdr th:first-child{text-align:left;min-width:200px}
+th.lc{background:rgba(232,197,71,.07)!important;color:var(--gold)!important}
+td{padding:6px 10px;border-bottom:1px solid rgba(30,37,48,.5);font-family:'DM Mono',monospace;font-size:.68rem;text-align:right;color:var(--text);border-right:1px solid rgba(30,37,48,.2)}
+td:first-child{text-align:left}
+tr:hover td{background:rgba(20,25,35,.5)}
+td.lv{background:rgba(232,197,71,.04);font-weight:500}
+td.dp{color:var(--green);font-size:.61rem;background:rgba(111,207,151,.04)}
+td.dn{color:var(--red);font-size:.61rem;background:rgba(235,87,87,.04)}
+td.dz{color:var(--muted2);font-size:.61rem}
+tr.sep td{background:rgba(14,18,24,.8);font-family:'DM Mono',monospace;font-size:.49rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);padding:4px 10px;border-bottom:1px solid var(--border)}
+tr.wrow td{color:var(--gold)}
+.ul{font-size:.5rem;color:var(--muted2)}
+/* Projection */
+.proj-layout{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:860px){.proj-layout{grid-template-columns:1fr}}
+.pp{padding:14px 18px;border-right:1px solid var(--border)}
+.pp:last-child{border-right:none}
+.pp-title{font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.mr{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(30,37,48,.4);gap:8px}
+.mr:last-child{border-bottom:none}
+.mrl{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mn{font-family:'DM Mono',monospace;font-size:.63rem;color:var(--text);display:flex;align-items:center;gap:5px}
+.mdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.mm{font-family:'DM Mono',monospace;font-size:.51rem;color:var(--muted)}
+.mv{font-family:'DM Mono',monospace;font-size:.76rem;text-align:right;white-space:nowrap;flex-shrink:0}
+.cblock{background:rgba(232,197,71,.05);border:1px solid rgba(232,197,71,.2);border-radius:3px;padding:10px 12px;margin-top:8px}
+.cblock .mn{color:var(--gold);font-size:.68rem;font-weight:600}
+.cblock .mv{color:var(--gold);font-size:.92rem}
+.star{color:var(--gold)}
+.btwrap{overflow-x:auto}
+.btt{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;white-space:nowrap}
+.btt th{font-size:.5rem;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);padding:5px 8px;text-align:right;border-bottom:1px solid var(--border2);background:var(--bg)}
+.btt th:first-child{text-align:left}
+.btt td{font-size:.58rem;padding:5px 8px;text-align:right;border-bottom:1px solid rgba(30,37,48,.4)}
+.btt td:first-child{text-align:left;color:var(--muted);font-size:.56rem}
+.btt tr.mrow td{background:rgba(20,25,35,.6);font-weight:500;color:var(--muted)}
+.btt tr.mrow td:first-child{color:var(--gold)}
+.ag{color:var(--green)}.ao{color:var(--orange)}.ab{color:var(--red)}
+/* Ctrl row inside chart cards */
+.ctrl-row{padding:9px 18px;background:var(--s2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ctrl-row label{font-family:'DM Mono',monospace;font-size:.54rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.ctrl-row select{padding:5px 22px 5px 8px;font-size:.68rem}
+/* MoM comparison table */
+.mom-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border)}
+@media(max-width:720px){.mom-grid{grid-template-columns:1fr}}
+.mom-panel{padding:14px 18px;border-right:1px solid var(--border)}
+.mom-panel:last-child{border-right:none}
+.mom-title{font-family:'DM Mono',monospace;font-size:.52rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.mom-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(30,37,48,.3);font-family:'DM Mono',monospace;font-size:.62rem}
+.mom-row:last-child{border-bottom:none}
+.mom-attr{color:var(--muted);font-size:.57rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mom-cur{color:var(--text);text-align:right}
+.mom-prev{color:var(--muted2);font-size:.57rem;text-align:right}
+.mom-chg{font-size:.57rem;text-align:right;white-space:nowrap}
+.chg-up{color:var(--green)}.chg-dn{color:var(--red)}.chg-na{color:var(--muted2)}
+footer{padding:12px 32px;border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:.59rem;color:var(--muted);display:flex;justify-content:space-between;background:var(--s1);margin-top:8px}
+@media(max-width:900px){header,.controls,.main,.status{padding-left:14px;padding-right:14px}}
+
+/* ── Print page containers (also affect screen layout) ── */
+.print-page {
+  display: block;
+  margin: 0 auto 20px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  border: 1px solid rgba(255,255,255,.06);
+  overflow: hidden;
+}
+
+/* ── Print styles ── */
+@media print {
+  @page { size: A4 landscape; margin: 8mm 10mm; }
+
+  html, body {
+    background: #fff !important; color: #111 !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+
+  /* Hide chrome */
+  header, .controls, .status, .prog-bar, .debug-box, footer, button {
+    display: none !important;
+  }
+
+  .main { padding: 0 !important; gap: 0 !important; display: block !important; }
+
+  /* Every card starts a new printed page */
+  .card {
+    page-break-before: always !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    height: 178mm !important;
+    width: 277mm !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+
+  /* Page 1: KPI + Intel share one page */
+  #kpiCard {
+    height: auto !important;
+    min-height: 0 !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    border-bottom: 1px solid #ddd !important;
+    flex-shrink: 0 !important;
+  }
+  #intelCard {
+    height: auto !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    page-break-before: avoid !important;
+    page-break-after: always !important;
+  }
+
+  .card-head {
+    background: #eef2fa !important; border-bottom: 1px solid #ccc !important;
+    padding: 4px 10px !important; flex-shrink: 0 !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  .card-title { color: #1a3a6c !important; font-size: 8.5pt !important; }
+  .card-sub   { color: #555 !important; font-size: 6pt !important; }
+  .chip       { display: none !important; }
+  .card-footnote {
+    font-size: 5pt !important; color: #777 !important; flex-shrink: 0 !important;
+    background: #fff !important; border-top: 1px solid #ddd !important; padding: 3px 10px !important;
+  }
+
+  /* KPI strip */
+  .kpi-strip { display: flex !important; flex-wrap: nowrap !important; overflow: hidden !important; }
+  .kpi-cell  { flex: 1 !important; padding: 5px 7px !important;
+               background: #f6f8fd !important; border-right: 1px solid #ddd !important;
+               -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .kpi-cell.kpi-pos { background: #eefaf3 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .kpi-cell.kpi-neg { background: #fdf0f0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .kpi-label { font-size: 5pt !important; color: #666 !important; margin-bottom: 2px !important; }
+  .kpi-val   { font-size: 8.5pt !important; color: #111 !important; }
+  .kpi-unit  { font-size: 5pt !important; color: #999 !important; }
+  .kpi-delta { font-size: 5.5pt !important; margin-top: 2px !important;
+               background: transparent !important; border: none !important; }
+  .kpi-delta.pos { color: #1a7a3a !important; }
+  .kpi-delta.neg { color: #b02020 !important; }
+  .kpi-delta.neu { color: #777 !important; }
+
+  /* Intel */
+  .intel-grid { display: grid !important; grid-template-columns: repeat(3,1fr) !important;
+                gap: 5px !important; padding: 6px 10px !important; flex: 1 !important; }
+  .intel-card { background: #f5f7fd !important; border: 1px solid #dde4f0 !important;
+                padding: 5px 7px !important; border-radius: 0 !important; overflow: hidden !important;
+                -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .intel-card::before { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .intel-headline { color: #111 !important; font-size: 6.5pt !important; }
+  .intel-detail   { color: #444 !important; font-size: 5.5pt !important; }
+  .intel-badge    { font-size: 5pt !important; }
+  .intel-numbers  { border-top: 1px solid #dde !important; padding-top: 3px !important; margin-top: 3px !important; }
+  .intel-num-val  { font-size: 6pt !important; color: #111 !important; }
+  .intel-num-lbl  { font-size: 4.5pt !important; color: #666 !important; }
+
+  /* Charts pages 2+3 */
+  #histCard, #histCard2 { overflow: hidden !important; }
+  #histChartsGrid, #histChartsGrid2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 4px !important; padding: 4px 8px 6px !important;
+    flex: 1 !important; min-height: 0 !important;
+  }
+  .mini-chart-block {
+    break-inside: avoid; display: flex !important; flex-direction: column !important;
+    background: #fff !important; border: 1px solid #ddd !important;
+    border-radius: 0 !important; overflow: hidden !important; min-height: 0 !important;
+  }
+  .mini-chart-title {
+    background: #eef2fa !important; color: #1a3a6c !important;
+    border-bottom: 1px solid #ddd !important; padding: 2px 5px !important;
+    font-size: 5.5pt !important; flex-shrink: 0 !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  .mini-chart-title strong { color: #1a3a6c !important; font-size: 5.5pt !important; }
+  .mini-chart-wrap { flex: 1 !important; min-height: 0 !important; padding: 2px 3px 3px !important; height: auto !important; }
+  .mini-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+  /* Balance sheet pages 4+5 — zoom makes browser count the shrunken size */
+  .tbl-outer { max-height: none !important; overflow: visible !important; flex: 1 !important; }
+  table { white-space: nowrap !important; width: 100% !important;
+          border-collapse: collapse !important; font-size: 7pt !important; }
+  th { background: #1a3a6c !important; color: #fff !important;
+       padding: 3px 4px !important; font-size: 6.5pt !important;
+       -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  td { padding: 2px 4px !important; font-size: 7pt !important;
+       color: #111 !important; border-bottom: 1px solid #eee !important; }
+  tr:nth-child(even) td { background: #f8fafc !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  tr.sep td, tr.grp th { background: #dce8f5 !important; color: #1a3a6c !important;
+    font-size: 7pt !important; padding: 2px 4px !important;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  td.lv { background: #dbeeff !important; font-weight: 700 !important;
+           -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  td.dp { color: #1a7a3a !important; font-weight: 700 !important; }
+  td.dn { color: #b02020 !important; font-weight: 700 !important; }
+
+  /* ── Balance Sheet Table Print Fixes ──
+     Ensures all columns fit on landscape A4 page (Pages 4 & 5)
+  ─────────────────────────────────────────── */
+  
+  /* Override existing zoom transform that causes issues */
+  #bsCard .tbl-outer,
+  #bsUSACard .tbl-outer {
+    zoom: 1 !important;
+    transform: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    flex: 1 !important;
+  }
+
+  /* Fixed table layout distributes columns evenly */
+  #bsCard table,
+  #bsUSACard table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    white-space: nowrap !important;
+    font-size: 6pt !important;
+    border-collapse: collapse !important;
+  }
+
+  /* First column (Attribute names) - fixed at 20% width */
+  #bsCard th:first-child,
+  #bsCard td:first-child,
+  #bsUSACard th:first-child,
+  #bsUSACard td:first-child {
+    width: 20% !important;
+    min-width: 20% !important;
+    text-align: left !important;
+    font-size: 5.5pt !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* All other columns share remaining 80% equally */
+  #bsCard th:not(:first-child),
+  #bsCard td:not(:first-child),
+  #bsUSACard th:not(:first-child),
+  #bsUSACard td:not(:first-child) {
+    width: auto !important;
+    text-align: right !important;
+    padding: 1px 2px !important;
+    font-size: 6pt !important;
+  }
+
+  /* Header cells */
+  #bsCard thead tr.grp th,
+  #bsCard thead tr.hdr th,
+  #bsUSACard thead tr.grp th,
+  #bsUSACard thead tr.hdr th {
+    padding: 2px 3px !important;
+    font-size: 5.5pt !important;
+    background: #1a3a6c !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Section separators */
+  #bsCard tr.sep td,
+  #bsUSACard tr.sep td {
+    font-size: 5.5pt !important;
+    padding: 1px 3px !important;
+    background: #dce8f5 !important;
+    color: #1a3a6c !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Highlighted latest year cells */
+  #bsCard td.lv,
+  #bsUSACard td.lv {
+    background: #dbeeff !important;
+    font-weight: 600 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Delta columns smaller */
+  #bsCard td.dp, #bsCard td.dn, #bsCard td.dz,
+  #bsUSACard td.dp, #bsUSACard td.dn, #bsUSACard td.dz {
+    font-size: 5.5pt !important;
+  }
+
+  /* World reference rows */
+  #bsCard tr.wrow td,
+  #bsUSACard tr.wrow td {
+    color: #b8860b !important;
+  }
+}
+</style>
+<base target="_blank">
+</head>
+<body>
+<header>
+  <div>
+    <div class="eyebrow">USDA FAS · Production, Supply &amp; Distribution · Open Data API</div>
+    <h1>PSD Macro Analytics</h1>
+  </div>
+  <div class="live-badge"><div class="live-dot" id="liveDot"></div><span id="liveLabel">Offline</span></div>
+</header>
+
+<div class="controls">
+  <div class="ctrl" style="min-width:260px">
+    <label>Commodity</label>
+    <select id="selComm" disabled style="min-width:260px"><option>Loading…</option></select>
+  </div>
+  <div class="ctrl">
+    <label>Countries &amp; World (Ctrl+click)</label>
+    <select id="selCountries" multiple style="min-width:240px;min-height:88px"></select>
+  </div>
+  <div class="ctrl">
+    <label>Lookback Years</label>
+    <select id="selYears">
+      <option value="10">10 Years</option>
+      <option value="15" selected>15 Years</option>
+      <option value="20">20 Years</option>
+      <option value="30">30 Years</option>
+    </select>
+  </div>
+  <div class="ctrl" style="align-self:flex-end">
+    <button class="btn" id="btnLoad" onclick="fetchData()" disabled>&#x27F3; Load Data</button>
+  </div>
+  <div class="ctrl" style="align-self:flex-end">
+    <button class="btn btn-ghost" onclick="document.getElementById('dbgBox').classList.toggle('show')">Debug</button>
+  </div>
+  <div class="ctrl" style="align-self:flex-end">
+    <button class="btn" id="btnPdf" onclick="generatePDF()" disabled style="background:var(--gold);color:#0a0e16;font-weight:700">&#x2399; PDF Report</button>
+  </div>
+</div>
+
+<div class="status loading" id="statusBar">Bootstrapping metadata…</div>
+<div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+<div class="debug-box" id="dbgBox"></div>
+
+<div class="main">
+  <!-- KPIs -->
+  <div class="card" id="kpiCard" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title">Market Snapshot</div><div class="card-sub" id="kpiSub">—</div></div>
+      <span class="chip gold" id="kpiYear">—</span>
+    </div>
+    <div class="kpi-strip" id="kpiStrip"></div>
+  </div>
+
+  <!-- Intelligence -->
+  <div class="card" id="intelCard" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title">Market Intelligence &amp; Signals</div><div class="card-sub" id="intelSub">—</div></div>
+      <span class="chip gold">LATEST REPORT</span>
+    </div>
+    <div class="intel-grid" id="intelGrid"></div>
+    <div class="card-footnote" id="intelFoot">—</div>
+  </div>
+
+  <!-- Historical charts grid — Page 2 (first half) -->
+  <div class="card" id="histCard" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title">Historical Trends — Part 1</div><div class="card-sub" id="histSub">—</div></div>
+      <span class="chip blue" id="histChip">—</span>
+    </div>
+    <div id="histChartsGrid" style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+  </div>
+
+  <!-- Historical charts grid — Page 3 (second half) -->
+  <div class="card" id="histCard2" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title">Historical Trends — Part 2</div><div class="card-sub" id="histSub2">—</div></div>
+      <span class="chip blue" id="histChip2">—</span>
+    </div>
+    <div id="histChartsGrid2" style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+  </div>
+
+  <!-- Balance Sheet — World / Selected -->
+  <div class="card" id="bsCard" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title">Balance Sheet Matrix — World</div><div class="card-sub" id="bsSub">—</div></div>
+      <span class="chip blue" id="bsChip">MATRIX</span>
+    </div>
+    <div class="tbl-outer" id="bsTbl"></div>
+    <div class="card-footnote" id="bsFoot">—</div>
+  </div>
+
+  <!-- Balance Sheet — USA -->
+  <div class="card" id="bsUSACard" style="display:none">
+    <div class="card-head">
+      <div><div class="card-title">Balance Sheet Matrix — USA</div><div class="card-sub" id="bsUSASub">—</div></div>
+      <span class="chip blue" id="bsUSAChip">USA</span>
+    </div>
+    <div class="tbl-outer" id="bsUSATbl"></div>
+    <div class="card-footnote" id="bsUSAFoot">—</div>
+  </div>
+
+</div>
+
+<footer>
+  <span>USDA FAS PSD · api.fas.usda.gov/api/psd</span>
+  <span id="footTs">Updated monthly on WASDE release day</span>
+</footer>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════════ */
+const API_KEY = 'ODlII7ZqEuOtcPaOl9ogOJVwUkH60TjqMj6FL4jl';
+const PSD_BASE= 'https://api.fas.usda.gov/api/psd';
+const PROXY   = 'https://corsproxy.io/?';
+const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const CC = ['#e8c547','#4fc3f7','#6fcf97','#bb86fc','#ffb347','#ff6b6b','#38d9d9','#a8e063'];
+const MC = ['#4fc3f7','#6fcf97','#e8c547','#bb86fc','#ffb347','#38d9d9'];
+const DEF_SEL = ['WORLD','US','CH','IN','BR'];
+
+// Attribute keywords we prefer in the monthly chart
+const MONTH_ATTR_KEYS = [
+  'area harvested','yield','production','imports','total supply',
+  'total distribution','exports','ending stocks','domestic consumption','loss','stocks-to-use'
+];
+
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let attrMap={}, countryMap={}, unitMap={};
+// Unit info per attributeId
+let aUnit={};   // attributeId → display string
+let aMult={};   // attributeId → multiplier (1 or 1000)
+let aIsRatio={}; // attributeId → bool (yield, S/U = true)
+
+let gData={};          // { year: [raw records] }
+let gYears=[];         // sorted marketing years loaded
+let curHistAttr=null;
+let gPrimaryCC='US';   // module-level primary country for monthly chart use
+let gCommCode='';      // module-level commodity code
+
+// Monthly series: mData[marketYear][attributeId] = [{cy,mo,val,lbl,key}]
+let mData={};
+let mDataWorld={};
+// Current/prior month snapshots
+let curRelease={};   // attrId → {cy,mo,val,lbl,key}  (primaryCC)
+let prvRelease={};
+let curRelWorld={};
+let prvRelWorld={};
+let curMonthLbl='Latest', prvMonthLbl='Prior';
+
+let cHist=null;
+
+/* ══════════════════════════════════════════════
+   UNIT LOGIC
+   USDA PSD convention: ALL volume/quantity values
+   stored in 1,000 units. The unitName typically says
+   "1000 Bales", "1000 MT", etc. We detect this and
+   apply ×1000 so displayed values are actual quantities,
+   shown as M (million) by fmt().
+
+   For ratio attrs (Yield, S/U, area per unit) we do
+   NOT multiply — their values ARE the actual number.
+══════════════════════════════════════════════ */
+const RATIO_WORDS = ['yield','ratio','stocks-to-use','index','per'];
+const PCT_WORDS   = ['%','percent'];
+
+function parseUnitString(rawUnit, attrName){
+  if(!rawUnit) return {mult:1, display:''};
+  let s = rawUnit.trim();
+  let mult = 1;
+
+  // Detect "1000", "1,000", "Thousand(s)(of)" prefix → these are stored-in-thousands units
+  const pMatch = s.match(/^(1[,\s.]?000|thousands?(\s+of)?)\s+/i);
+  if(pMatch){
+    mult = 1000;
+    s = s.slice(pMatch[0].length).trim();
+  }
+
+  // HA / hectares → acres
+  if(/\bHA\b/i.test(s) || /hectare/i.test(s)){
+    mult *= 2.47105;
+    s = s.replace(/\bHA\b/gi,'Acres').replace(/Hectares?/gi,'Acres');
+  }
+
+  return {mult, display: s || rawUnit.trim() || 'Units'};
+}
+
+function isRatioAttr(attrId){
+  const n = (attrMap[attrId]||'').toLowerCase();
+  return RATIO_WORDS.some(w=>n.includes(w)) || PCT_WORDS.some(w=>(aUnit[attrId]||'').includes(w));
+}
+
+/* ══════════════════════════════════════════════
+   FORMATTERS
+══════════════════════════════════════════════ */
+function fmtMY(y){const yr=parseInt(y);return `MY ${yr}/${(yr+1).toString().slice(-2)}`;}
+// Main number formatter: after x1000 mult, values in millions → show M
+function fmt(v,dp=2){
+  if(v==null||isNaN(+v)) return '—';
+  const n=+v;
+  if(Math.abs(n)>=1e9) return (n/1e9).toFixed(dp)+'B';
+  if(Math.abs(n)>=1e6) return (n/1e6).toFixed(dp)+'M';
+  if(Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toLocaleString('en-US',{maximumFractionDigits:dp});
+}
+function fmtD(v){
+  if(v==null||isNaN(+v)) return '—';
+  const n=+v, s=n>=0?'+':'-', a=Math.abs(n);
+  if(a>=1e9) return s+(a/1e9).toFixed(2)+'B';
+  if(a>=1e6) return s+(a/1e6).toFixed(2)+'M';
+  if(a>=1e3) return s+(a/1e3).toFixed(1)+'K';
+  return (n>=0?'+':'')+n.toLocaleString('en-US',{maximumFractionDigits:2});
+}
+function pct(a,b){if(!b||b===0)return null;return((a-b)/Math.abs(b))*100;}
+function fmtPct(v){if(v==null)return'—';return(v>=0?'+':'')+v.toFixed(1)+'%';}
+function dbg(m){const b=document.getElementById('dbgBox');b.innerHTML+=`<div>${m}</div>`;b.scrollTop=b.scrollHeight;}
+function setStatus(c,m){const e=document.getElementById('statusBar');e.className='status '+c;e.textContent=m;}
+function setLive(on){document.getElementById('liveDot').className='live-dot'+(on?' on':'');document.getElementById('liveLabel').textContent=on?'Live':'Offline';}
+function setProg(p){document.getElementById('progFill').style.width=p+'%';}
+function ccName(cc){if(cc==='WORLD')return'World';return countryMap[cc]||cc;}
+
+/* ══════════════════════════════════════════════
+   DATA ACCESS
+══════════════════════════════════════════════ */
+// Get raw (unscaled) value for one country/year/attr
+function rawVal(yr,cc,aid){
+  const rows=gData[yr]; if(!rows) return null;
+  const r=rows.find(x=>x.countryCode===cc&&x.attributeId===aid);
+  return (r&&r.value!=null)?r.value:null;
+}
+// Get scaled (actual quantity) value
+function getV(yr,cc,aid){
+  const v=rawVal(yr,cc,aid); if(v==null) return null;
+  return v*(aMult[aid]||1);
+}
+
+// Aggregate across multiple country codes for a year+attr
+function aggV(yr, codes, aid){
+  const n=(attrMap[aid]||'').toLowerCase();
+  // Yield: production-weighted average
+  if(n.includes('yield')){
+    const pid=findA('production'); if(!pid) return null;
+    let sp=0, spy=0;
+    codes.forEach(cc=>{const y=getV(yr,cc,aid);const p=getV(yr,cc,pid);if(y!=null&&p!=null){sp+=p;spy+=p*y;}});
+    return sp>0?spy/sp:null;
+  }
+  // Stocks/Use: recalculate
+  if(n.includes('stock')&&n.includes('use')){
+    const eid=findA('ending stocks'); const cid=findA('domestic consumption')||findA('total distribution');
+    if(!eid||!cid) return null;
+    let es=0,cs=0;
+    codes.forEach(cc=>{const e=getV(yr,cc,eid);const c=getV(yr,cc,cid);if(e!=null)es+=e;if(c!=null)cs+=c;});
+    return cs>0?(es/cs)*100:null;
+  }
+  // Sum everything else
+  let sum=null;
+  codes.forEach(cc=>{const v=getV(yr,cc,aid);if(v!=null)sum=(sum||0)+v;});
+  return sum;
+}
+
+function findA(substr){
+  const e=Object.entries(attrMap).find(([,nm])=>nm.toLowerCase().includes(substr.toLowerCase()));
+  return e?parseInt(e[0]):null;
+}
+// Smart domestic consumption finder — handles commodity-specific naming (Mill Use, Dom. Consumption, etc.)
+function findConsumption(){
+  const patterns=['domestic consumption','total distribution','dom. consumption','domestic use',
+                  'total use','mill use','consumption','dom. use'];
+  for(const p of patterns){
+    const id=findA(p);
+    if(id!=null) return id;
+  }
+  // Last resort: any attr with "use" that isn't stocks/use or yield
+  const e=Object.entries(attrMap).find(([,nm])=>{
+    const n=nm.toLowerCase();
+    return n.includes('use') && !n.includes('stock') && !n.includes('yield') && !n.includes('ratio');
+  });
+  return e?parseInt(e[0]):null;
+}
+
+function sortedAttrs(){
+  const ORD=['Beginning Stocks','Area Planted','Area Harvested','Yield','Production','Imports','Total Supply',
+             'Feed Dom.','Food Dom.','Industrial Dom.','Domestic Consumption','Other Use','Total Distribution','Exports','Ending Stocks','Loss'];
+  const ids=Object.keys(aUnit).map(Number);
+  return ids.map(id=>({id,name:attrMap[id]||String(id),unit:aUnit[id]||'',mult:aMult[id]||1}))
+    .sort((a,b)=>{
+      let ia=ORD.findIndex(x=>a.name.includes(x));
+      let ib=ORD.findIndex(x=>b.name.includes(x));
+      if(ia<0)ia=99; if(ib<0)ib=99;
+      return ia===ib?a.name.localeCompare(b.name):ia-ib;
+    });
+}
+
+/* ══════════════════════════════════════════════
+   FETCH
+══════════════════════════════════════════════ */
+async function usda(path){
+  const url=`${PSD_BASE}/${path}`;
+  const proxies=[
+    {label:'direct',  build:()=>fetch(url,{headers:{'X-Api-Key':API_KEY,'Accept':'application/json'}})},
+    {label:'proxy1',  build:()=>fetch(PROXY+encodeURIComponent(url),{headers:{'X-Api-Key':API_KEY,'Accept':'application/json'}})},
+    {label:'proxy2',  build:async()=>{await new Promise(r=>setTimeout(r,800));return fetch(PROXY+encodeURIComponent(url),{headers:{'X-Api-Key':API_KEY,'Accept':'application/json'}});}},
+    {label:'allorigins',build:()=>fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url+'?api_key='+API_KEY)}`,{headers:{'Accept':'application/json'}})},
+  ];
+  dbg(`→ ${path}`);
+  for(const p of proxies){
+    try{
+      const r=await Promise.race([p.build(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),7000))]);
+      if(!r.ok){dbg(`  ${p.label}: HTTP ${r.status}`);continue;}
+      const j=await r.json();
+      if(!j){dbg(`  ${p.label}: null response`);continue;}
+      dbg(`  ${p.label}: ✓`);
+      if(p.label==='direct') setLive(true);
+      return j;
+    }catch(e){dbg(`  ${p.label}: ${e.message}`);}
+  }
+  dbg(`  ALL FAILED for ${path}`);
+  return null;
+}
+
+/* ══════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════ */
+window.onload=async()=>{
+  try{
+    document.getElementById('dbgBox').classList.add('show'); // show debug during init
+    setStatus('loading','Loading commodities…');
+    const comms = await usda('commodities');
+    if(!comms){ throw new Error('commodities endpoint failed — check API key or network'); }
+    setStatus('loading','Loading countries…');
+    const cntry = await usda('countries');
+    if(!cntry){ throw new Error('countries endpoint failed'); }
+    setStatus('loading','Loading attributes…');
+    const attrs = await usda('commodityAttributes');
+    if(!attrs){ throw new Error('commodityAttributes endpoint failed'); }
+    setStatus('loading','Loading units…');
+    const units = await usda('unitsOfMeasure') || [];
+    attrs.forEach(a=>attrMap[a.attributeId]=a.attributeName);
+    cntry.forEach(c=>countryMap[c.countryCode]=c.countryName);
+    (units||[]).forEach(u=>unitMap[u.unitId]=u.unitName);
+    dbg(`${comms.length} comms · ${cntry.length} cntry · ${attrs.length} attrs`);
+
+    const sc=document.getElementById('selComm');
+    sc.innerHTML=comms.sort((a,b)=>a.commodityName.localeCompare(b.commodityName))
+      .map(c=>`<option value="${c.commodityCode}">${c.commodityName}</option>`).join('');
+    const cot=comms.find(c=>c.commodityCode==='2631000'||c.commodityName.toLowerCase().includes('cotton, upland'));
+    if(cot) sc.value=cot.commodityCode;
+    sc.disabled=false;
+
+    const cc=document.getElementById('selCountries');
+    cc.innerHTML=`<option value="WORLD" style="color:var(--gold);font-weight:600">🌍 World (All Countries)</option>`
+      +cntry.sort((a,b)=>a.countryName.localeCompare(b.countryName)).map(c=>`<option value="${c.countryCode}">${c.countryName}</option>`).join('');
+    [...cc.options].forEach(o=>{if(DEF_SEL.includes(o.value))o.selected=true;});
+
+    document.getElementById('btnLoad').disabled=false;
+    setStatus('ok','✓ Ready — select commodity & countries, click Load Data');
+    setProg(100);
+  }catch(e){setStatus('err','✗ Init: '+e.message);document.getElementById('dbgBox').classList.add('show');}
+};
+
+/* ══════════════════════════════════════════════
+   FETCH DATA
+══════════════════════════════════════════════ */
+async function fetchData(){
+  const commCode=document.getElementById('selComm').value;
+  const selCodes=[...document.getElementById('selCountries').selectedOptions].map(o=>o.value);
+  const lookback=parseInt(document.getElementById('selYears').value);
+  if(!commCode||!selCodes.length){setStatus('err','Select commodity and at least one country');return;}
+
+  document.getElementById('btnLoad').disabled=true;
+  gData={};gYears=[];aUnit={};aMult={};mData={};curRelease={};prvRelease={};curHistAttr=null;
+  setLive(false);setProg(5);document.getElementById('dbgBox').innerHTML='';
+
+  const commName=document.getElementById('selComm').selectedOptions[0]?.text||commCode;
+  setStatus('loading',`⟳ ${commName}…`);
+
+  const inclWorld=selCodes.includes('WORLD');
+  const ccs=[...new Set(selCodes.filter(c=>c!=='WORLD'))];
+  const primaryCC=ccs.find(c=>c==='US')||ccs[0]||'US';
+  gPrimaryCC=primaryCC;
+  gCommCode=commCode;
+
+  const maxY=new Date().getFullYear(), minY=maxY-lookback;
+  const years=[]; for(let y=maxY;y>=minY;y--) years.push(y);
+
+  // Fetch all years+countries in parallel — fire everything at once
+  // Any that fail are retried up to 3 more times with a short backoff
+
+  function storeRows(y, rows){
+    rows.forEach(r=>{
+      if(aUnit[r.attributeId]!=null) return;
+      const rawU=unitMap[r.unitId]||'';
+      const {mult,display}=parseUnitString(rawU,attrMap[r.attributeId]||'');
+      aMult[r.attributeId]=mult; aUnit[r.attributeId]=display;
+    });
+    if(rows.length && !gData[y]){ gData[y]=rows; gYears.push(y); }
+  }
+
+  async function fetchYear(y){
+    const targets=[];
+    if(inclWorld) targets.push({cc:'WORLD', path:`commodity/${commCode}/world/year/${y}`});
+    ccs.forEach(cc=>targets.push({cc, path:`commodity/${commCode}/country/${cc}/year/${y}`}));
+    const results=await Promise.all(targets.map(async t=>{
+      const d=await usda(t.path);
+      const arr=Array.isArray(d)?d:[];
+      if(t.cc==='WORLD') arr.forEach(r=>r.countryCode='WORLD');
+      return arr;
+    }));
+    return results.flat();
+  }
+
+  // Pass 1: all years in parallel
+  setStatus('loading',`⟳ ${commName} — fetching ${years.length} years…`);
+  let results = await Promise.all(years.map(async y=>{
+    const rows = await fetchYear(y);
+    storeRows(y, rows);
+    setProg(5+Math.round((gYears.length/years.length)*72));
+    return {y, ok: !!gData[y]};
+  }));
+
+  // Retry failed years up to 3 passes with short backoff
+  let pending = results.filter(r=>!r.ok).map(r=>r.y);
+  for(let pass=1; pass<=3 && pending.length>0; pass++){
+    await new Promise(r=>setTimeout(r,pass*800));
+    dbg(`Retry pass ${pass}: ${pending.length} years — ${pending.join(',')}`);
+    setStatus('loading',`⟳ ${commName} — retrying ${pending.length} missing years…`);
+    const retried = await Promise.all(pending.map(async y=>{
+      const rows = await fetchYear(y);
+      storeRows(y, rows);
+      return {y, ok: !!gData[y]};
+    }));
+    pending = retried.filter(r=>!r.ok).map(r=>r.y);
+  }
+
+  if(pending.length) dbg(`⚠ Could not load: ${pending.join(',')}`);
+  gYears.sort((a,b)=>a-b);
+  setProg(78);
+
+  // ── Force aMult=1000 for ALL quantity attributes ──────────────────
+  // USDA PSD stores every volume quantity in "1,000 [unit]".
+  // Ratio/index fields (Yield, Stocks-to-Use, %) are already actual values.
+  // Area fields (Harvested, Planted) are in 1,000 HA/acres — still ×1000.
+  // We override whatever parseUnitString guessed.
+  const RATIO_KW = ['yield','stocks-to-use','stock to use','stocks/use'];
+  const PCT_WORDS2 = ['%','percent'];
+  Object.keys(attrMap).forEach(id=>{
+    const nm=(attrMap[id]||'').toLowerCase();
+    const ut=(aUnit[id]||'').toLowerCase();
+    const isRatio = RATIO_KW.some(k=>nm.includes(k)) || PCT_WORDS2.some(k=>ut.includes(k));
+    aMult[id] = isRatio ? 1 : 1000;
+  });
+  dbg('All attrs: '+Object.entries(attrMap).map(([k,nm])=>nm).join(' | '));
+  dbg('findConsumption → '+(findConsumption()?attrMap[findConsumption()]:'NULL'));
+  // ─────────────────────────────────────────────────────────────────
+
+
+
+  document.getElementById('btnLoad').disabled=false;
+  if(!gYears.length){setStatus('err','✗ No data');setProg(0);return;}
+  document.getElementById('btnPdf').disabled=false;
+
+  curHistAttr=findA('ending stocks')||findA('production')||parseInt(Object.keys(aUnit)[0]);
+
+  setProg(100);
+  setStatus('ok',`✓ ${commName} · ${gYears.length} yrs loaded · ${selCodes.length} selections`);
+  document.getElementById('footTs').textContent=`Loaded ${new Date().toLocaleString()} · ${commName}`;
+  renderAll(commName,primaryCC,selCodes);}
+
+/* ══════════════════════════════════════════════
+   FETCH MONTHLY SERIES
+   Endpoint: /commodity/{code}/country/{cc}/year/{MY}/calendarYear/{cy}/month/{mo}
+   Also fetches World equivalent.
+   MY N first release: May of year N (WASDE cycle).
+   Fetches up to 18 months, stopping at today.
+══════════════════════════════════════════════ */
+
+
+
+/* ══════════════════════════════════════════════
+   5. MONTHLY EVOLUTION CHART CARD
+══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   RENDER ALL
+══════════════════════════════════════════════ */
+function renderAll(commName,primaryCC,selCodes){
+  renderKPIs(commName,primaryCC);
+  renderIntel(commName,primaryCC);
+  buildHistTabs();
+  renderHistChart(selCodes);
+  renderBalanceSheet(commName,selCodes);
+  // Fit all cards after render — charts need longer delay for canvas paint
+  setTimeout(()=>{
+    ['kpiCard','intelCard','bsCard','bsUSACard'].forEach(id=>{
+      fitCardForPrint(id);
+    });
+  }, 800);
+}
+
+/* ══════════════════════════════════════════════
+   1. KPIs
+══════════════════════════════════════════════ */
+function renderKPIs(commName,pcc){
+  document.getElementById('kpiCard').style.display='';
+  if(gYears.length<2) return;
+  const ly=gYears[gYears.length-1], py=gYears[gYears.length-2];
+  const eid=findA('ending stocks'),pid=findA('production'),xid=findA('export'),cid=findConsumption();
+  const unit=eid?aUnit[eid]||'':'';
+  const pname=ccName(pcc);
+
+  const G=(y,cc,id)=>getV(y,cc,id);
+  const wE=[G(ly,'WORLD',eid),G(py,'WORLD',eid)];
+  const wP=[G(ly,'WORLD',pid),G(py,'WORLD',pid)];
+  const wX=[G(ly,'WORLD',xid),G(py,'WORLD',xid)];
+  const wC=[G(ly,'WORLD',cid),G(py,'WORLD',cid)];
+  const uE=[G(ly,pcc,eid),G(py,pcc,eid)];
+  // S/U = ending stocks / total use
+  // Total use = try cid directly, then Total Distribution, then Total Supply - Ending Stocks
+  function calcSU(e,c,y){
+    if(e==null) return null;
+    if(c!=null && c>0){ dbg(`S/U ${y}: using cid directly → ${(e/c*100).toFixed(1)}%`); return e/c*100; }
+    // try Total Distribution
+    const tdid=findA('total distribution'), tdv=tdid?G(y,'WORLD',tdid):null;
+    if(tdv!=null && tdv>0){ dbg(`S/U ${y}: using Total Distribution → ${(e/tdv*100).toFixed(1)}%`); return e/tdv*100; }
+    // try Total Supply minus Ending Stocks (= total use by definition)
+    const tsid=findA('total supply'), tsv=tsid?G(y,'WORLD',tsid):null;
+    if(tsv!=null && tsv>e){ dbg(`S/U ${y}: using TotalSupply-EndStocks → ${(e/(tsv-e)*100).toFixed(1)}%`); return e/(tsv-e)*100; }
+    // last resort: scan all attrs with world value, pick largest plausible denominator
+    let bestDenom=null;
+    Object.keys(attrMap).forEach(id=>{
+      const nm=(attrMap[id]||'').toLowerCase();
+      if(nm.includes('use')||nm.includes('consumption')||nm.includes('distribution')){
+        const v=G(y,'WORLD',parseInt(id));
+        if(v!=null && v>e && (bestDenom==null||v<bestDenom)) bestDenom=v;
+      }
+    });
+    if(bestDenom){ dbg(`S/U ${y}: using scanned denom ${bestDenom} → ${(e/bestDenom*100).toFixed(1)}%`); return e/bestDenom*100; }
+    dbg(`S/U ${y}: all methods failed (e=${e}, c=${c})`);
+    return null;
+  }
+  const su0=calcSU(wE[0],wC[0],ly);
+  const su1=calcSU(wE[1],wC[1],py);
+  const pc=pct(wP[0],wP[1]);
+  document.getElementById('kpiSub').textContent=`World & ${pname} · ${fmtMY(ly)} · ${unit}`;
+  document.getElementById('kpiYear').textContent=fmtMY(ly);
+
+  function badge(a,b,type='pct'){
+    if(a==null||b==null) return `<span class="kpi-delta neu">N/A</span>`;
+    const ch=type==='pp'?a-b:pct(a,b);
+    const cls=ch>0?'pos':ch<0?'neg':'neu';
+    return `<span class="kpi-delta ${cls}">${type==='pp'?(ch>=0?'+':'')+ch.toFixed(1)+'pp':fmtPct(ch)+' YoY'}</span>`;
+  }
+  function kcls(a,b){return a==null||b==null?'kpi-neu':a>b?'kpi-pos':a<b?'kpi-neg':'kpi-neu';}
+
+  const kpis=[
+    {l:'World Production',  v:fmt(wP[0]),u:unit,d:badge(wP[0],wP[1]),c:kcls(wP[0],wP[1])},
+    {l:'World End Stocks',  v:fmt(wE[0]),u:unit,d:badge(wE[0],wE[1]),c:kcls(wE[0],wE[1])},
+    {l:'World Exports',     v:fmt(wX[0]),u:unit,d:badge(wX[0],wX[1]),c:kcls(wX[0],wX[1])},
+    {l:'Stocks/Use',        v:su0!=null?su0.toFixed(1)+'%':'—',u:'',d:badge(su0,su1,'pp'),c:kcls(su0,su1)},
+    {l:'YoY Production',    v:pc!=null?fmtPct(pc):'—',u:'',vc:pc==null?'':pc>=0?'var(--green)':'var(--red)',d:badge(wP[0],wP[1]),c:kcls(wP[0],wP[1])},
+    {l:pname+' End Stocks', v:fmt(uE[0]),u:unit,d:badge(uE[0],uE[1]),c:kcls(uE[0],uE[1])},
+  ];
+  document.getElementById('kpiStrip').innerHTML=kpis.map(k=>`
+    <div class="kpi-cell ${k.c}">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-val" style="${k.vc?'color:'+k.vc:''}">${k.v}</div>
+      <div class="kpi-unit">${k.u||''}</div>${k.d}
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════════════════
+   2. INTELLIGENCE
+══════════════════════════════════════════════ */
+function renderIntel(commName,pcc){
+  document.getElementById('intelCard').style.display='';
+  if(gYears.length<2) return;
+  const ly=gYears[gYears.length-1],py=gYears[gYears.length-2];
+  const pname=ccName(pcc);
+  document.getElementById('intelSub').textContent=`${commName} · ${fmtMY(ly)} vs ${fmtMY(py)} · ${pname} focus`;
+
+  const eid=findA('ending stocks'),pid=findA('production'),xid=findA('export'),cid=findConsumption();
+  const unit=eid?aUnit[eid]:'';
+  const G=(y,cc,id)=>getV(y,cc,id);
+  const wE=[G(ly,'WORLD',eid),G(py,'WORLD',eid)];
+  const wP=[G(ly,'WORLD',pid),G(py,'WORLD',pid)];
+  const wX=[G(ly,'WORLD',xid),G(py,'WORLD',xid)];
+  const wC=[G(ly,'WORLD',cid),G(py,'WORLD',cid)];
+  const lP=[G(ly,pcc,pid),G(py,pcc,pid)];
+  const lE=[G(ly,pcc,eid),G(py,pcc,eid)];
+  function calcSUI(e,c,y){
+    if(e==null) return null;
+    if(c!=null&&c>0) return e/c*100;
+    const tsid=findA('total supply'),tsv=getV(y,'WORLD',tsid);
+    if(tsv!=null&&tsv>e) return e/(tsv-e)*100;
+    return null;
+  }
+  const su0=calcSUI(wE[0],wC[0],ly);
+  const su1=calcSUI(wE[1],wC[1],py);
+
+  function card(type,tag,hl,det,nums){
+    const numH=nums?`<div class="intel-numbers">${nums.map(n=>`<div><div class="intel-num-val">${n.v}</div><div class="intel-num-lbl">${n.l}</div></div>`).join('')}</div>`:'';
+    return `<div class="intel-card ${type}"><div class="intel-badge"><div class="intel-dot"></div>${tag}</div><div class="intel-headline">${hl}</div><div class="intel-detail">${det}</div>${numH}</div>`;
+  }
+  const cards=[];
+  if(wE[0]!=null&&wE[1]!=null){const ch=pct(wE[0],wE[1]);cards.push(card(ch<-5?'bearish':ch>5?'bullish':'neutral',`World Stocks · ${fmtMY(ly)}`,`Global stocks ${ch>=0?'build':'draw'} ${fmtPct(ch)} YoY`,`${ch<-10?'Historically tight.':ch>10?'Ample buffer.':'Near neutral.'}`,
+    [{v:fmt(wE[0]),l:`Now (${unit})`},{v:fmt(wE[1]),l:'Prior'},{v:fmtPct(ch),l:'YoY Δ'}]));}
+  if(wP[0]!=null&&wP[1]!=null){const ch=pct(wP[0],wP[1]);cards.push(card(ch>3?'bullish':ch<-3?'bearish':'neutral',`World Production · ${fmtMY(ly)}`,`Production ${ch>=0?'rises':'falls'} ${fmtPct(ch)} YoY`,`${ch>5?'Bumper crop.':ch<-5?'Shortfall.':'Normal range.'}`,
+    [{v:fmt(wP[0]),l:`Now (${unit})`},{v:fmt(wP[1]),l:'Prior'},{v:fmtPct(ch),l:'YoY Δ'}]));}
+  if(su0!=null){const ch=su1!=null?su0-su1:null;cards.push(card(su0<20?'bearish':su0>38?'bullish':'neutral',`Stocks-to-Use · ${fmtMY(ly)}`,`World S/U at ${su0.toFixed(1)}% — ${su0<20?'Tight':su0>35?'Comfortable':'Mid-range'}`,
+    `${su1!=null?`Prior: ${su1.toFixed(1)}%, Δ: ${ch!=null?(ch>=0?'+':'')+ch.toFixed(1):'?'}pp. `:''}${su0<18?'Sub-18% triggers moves.':su0>40?'High stocks cap prices.':'Normal.'}`,
+    su1!=null?[{v:su0.toFixed(1)+'%',l:'Now'},{v:su1.toFixed(1)+'%',l:'Prior'},{v:(ch>=0?'+':'')+ch.toFixed(1)+'pp',l:'Δ'}]:null));}
+  if(wX[0]!=null&&wX[1]!=null){const ch=pct(wX[0],wX[1]);cards.push(card(ch>3?'bullish':ch<-3?'warning':'neutral',`Trade Flows · ${fmtMY(ly)}`,`Exports ${ch>=0?'expand':'contract'} ${fmtPct(ch)}`,`${ch>5?'Demand tightening.':ch<-5?'Subdued buying.':'Stable.'}`,
+    [{v:fmt(wX[0]),l:`Now (${unit})`},{v:fmt(wX[1]),l:'Prior'},{v:fmtPct(ch),l:'YoY Δ'}]));}
+  if(lP[0]!=null&&lP[1]!=null){const ch=pct(lP[0],lP[1]);cards.push(card(ch>5?'bullish':ch<-5?'bearish':'neutral',`${pname} Production · ${fmtMY(ly)}`,`${pname} crop ${ch>=0?'grows':'falls'} ${fmtPct(ch)}`,`${ch<-8?'May increase imports.':ch>10?'Boost exports.':'Normal cycle.'}`,
+    [{v:fmt(lP[0]),l:`Now (${unit})`},{v:fmt(lP[1]),l:'Prior'},{v:fmtPct(ch),l:'YoY Δ'}]));}
+  if(lE[0]!=null&&lE[1]!=null){const ch=pct(lE[0],lE[1]);cards.push(card(ch<-10?'bearish':ch>10?'bullish':'neutral',`${pname} Carryout · ${fmtMY(ly)}`,`${pname} stocks ${ch>=0?'build to':'draw to'} ${fmt(lE[0])} ${unit} (${fmtPct(ch)})`,`${ch<-15?'Aggressive drawdown.':ch>15?'Build = demand weakness.':'Steady.'}`,
+    [{v:fmt(lE[0]),l:`Now (${unit})`},{v:fmt(lE[1]),l:'Prior'},{v:fmtPct(ch),l:'YoY Δ'}]));}
+
+  document.getElementById('intelGrid').innerHTML=cards.slice(0,6).join('');
+  const us=[...new Set(sortedAttrs().map(a=>a.unit).filter(Boolean))];
+  document.getElementById('intelFoot').textContent=`Units: ${us.slice(0,5).join(' / ')} · Values stored as "1,000 [unit]" in USDA API × 1,000 = actual quantities · M = million`;
+}
+
+/* ══════════════════════════════════════════════
+   3. HISTORICAL CHARTS GRID
+   Split across two cards (histCard / histCard2)
+   so each fits on one print page.
+══════════════════════════════════════════════ */
+const gHistCharts = {}; // {attrId: Chart instance}
+
+function buildHistTabs(){ /* no-op */ }
+function switchHistAttr(id,el){ /* no-op */ }
+
+function renderHistChart(selCodes){
+  document.getElementById('histCard').style.display='';
+  document.getElementById('histCard2').style.display='';
+  if(!gYears.length) return;
+  selCodes=selCodes||[...document.getElementById('selCountries').selectedOptions].map(o=>o.value);
+  const lookback=parseInt(document.getElementById('selYears').value)||15;
+  const dispYears=gYears.slice(-lookback);
+  const sa=sortedAttrs();
+  const labels=dispYears.map(fmtMY);
+  const showCC=[]; if(selCodes.includes('WORLD'))showCC.push('WORLD'); selCodes.filter(c=>c!=='WORLD').forEach(c=>showCC.push(c));
+
+  const half=Math.ceil(sa.length/2);
+  const sa1=sa.slice(0,half), sa2=sa.slice(half);
+
+  const sub=`${fmtMY(dispYears[0])}–${fmtMY(dispYears[dispYears.length-1])} · ${showCC.map(ccName).join(', ')}`;
+  document.getElementById('histSub').textContent=`${sa1.length} attributes · ${sub}`;
+  document.getElementById('histChip').textContent=`PART 1 / ${sa1.length}`;
+  document.getElementById('histSub2').textContent=`${sa2.length} attributes · ${sub}`;
+  document.getElementById('histChip2').textContent=`PART 2 / ${sa2.length}`;
+
+  // Destroy old charts
+  Object.values(gHistCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+  Object.keys(gHistCharts).forEach(k=>delete gHistCharts[k]);
+
+  function buildGrid(gridId, attrs){
+    const grid=document.getElementById(gridId);
+    grid.innerHTML=attrs.map(attr=>`
+      <div class="mini-chart-block">
+        <div class="mini-chart-title"><strong>${attr.name}</strong>&nbsp;<span style="color:var(--muted2);font-size:.5rem">${attr.unit}</span></div>
+        <div class="mini-chart-wrap"><canvas id="mc_${attr.id}"></canvas></div>
+      </div>`).join('');
+  }
+
+  buildGrid('histChartsGrid',  sa1);
+  buildGrid('histChartsGrid2', sa2);
+
+  const mkOpts=(unit)=>({
+    responsive:true,maintainAspectRatio:false,animation:{duration:0},
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{labels:{color:'#8a9ab8',font:{family:'DM Mono',size:8},boxWidth:10,padding:5}},
+      tooltip:{backgroundColor:'#0e1218',borderColor:'rgba(232,197,71,.2)',borderWidth:1,
+        titleColor:'#e8c547',bodyColor:'#dde4f0',
+        titleFont:{family:'DM Mono',size:8},bodyFont:{family:'DM Mono',size:8},
+        filter:i=>i.raw!=null,
+        callbacks:{label:i=>`${i.dataset.label}: ${fmt(i.raw,1)} ${unit}`}}
+    },
+    scales:{
+      x:{ticks:{color:'#4a5870',font:{family:'DM Mono',size:7.5},maxRotation:35,maxTicksLimit:8},grid:{color:'#161e2a'}},
+      y:{ticks:{color:'#4a5870',font:{family:'DM Mono',size:7.5},callback:v=>fmt(v,1),maxTicksLimit:5},grid:{color:'#161e2a'}}
+    }
+  });
+
+  [...sa1,...sa2].forEach(attr=>{
+    const cv=document.getElementById(`mc_${attr.id}`);
+    if(!cv) return;
+    const datasets=[]; let ci=0;
+    showCC.forEach(cc=>{
+      const pts=dispYears.map(y=>getV(y,cc,attr.id));
+      if(pts.every(v=>v==null)) return;
+      const isW=cc==='WORLD', col=CC[ci%CC.length]; ci++;
+      datasets.push({label:ccName(cc),data:pts,borderColor:col,backgroundColor:col+(isW?'22':'10'),
+        borderWidth:isW?2:1.5,borderDash:isW?[]:[3,2],pointRadius:isW?2.5:1.5,tension:.3,fill:false,spanGaps:true});
+    });
+    if(!datasets.length) return;
+    gHistCharts[attr.id]=new Chart(cv.getContext('2d'),{type:'line',data:{labels,datasets},options:mkOpts(attr.unit)});
+  });
+
+  // Fit chart cards after canvas render
+  setTimeout(()=>{fitCardForPrint('histCard');fitCardForPrint('histCard2');},800);
+}
+
+
+/* ══════════════════════════════════════════════
+   4. BALANCE SHEET
+   Aggregates across all selected codes.
+   Latest year → Value + YoY Δ column.
+   Prior years → Value only.
+══════════════════════════════════════════════ */
+function renderBalanceSheet(commName,selCodes){
+  document.getElementById('bsCard').style.display='';
+  if(!gYears.length) return;
+  const sa=sortedAttrs();
+  const dYears=gYears.slice(-10); // show last 10 years
+  const ly=dYears[dYears.length-1], py=dYears[dYears.length-2]||ly-1;
+
+  const hasWorld=selCodes.includes('WORLD');
+  const ccs=selCodes.filter(c=>c!=='WORLD');
+  const aggCodes=hasWorld?['WORLD']:ccs.length>0?ccs:['WORLD'];
+  const isMulti=!hasWorld&&ccs.length>1;
+  const label=hasWorld?'World':ccs.length===1?ccName(ccs[0]):`${ccs.length} Countries (${ccs.slice(0,3).map(ccName).join(', ')}${ccs.length>3?'…':''})`;
+
+  function getA(yr,aid){return aggCodes.length===1?getV(yr,aggCodes[0],aid):aggV(yr,aggCodes,aid);}
+
+  document.getElementById('bsSub').textContent=`${commName} · ${label}${isMulti?' (aggregated)':''} · Last ${dYears.length} yrs · YoY Δ only for ${fmtMY(ly)}`;
+  document.getElementById('bsChip').textContent=`${sa.length} ATTRIBUTES`;
+
+  const SUPPLY=['Beginning Stocks','Area Planted','Area Harvested','Yield','Production','Import','Total Supply'];
+  const DEMAND=['Feed','Food','Industrial','Domestic','Other Use','Distribution','Export','Loss'];
+  const STOCKS=['Ending Stocks'];
+  function sec(n){if(STOCKS.some(x=>n.includes(x)))return'S';if(DEMAND.some(x=>n.includes(x)))return'D';if(SUPPLY.some(x=>n.includes(x)))return'U';return'O';}
+  const SL={S:'── Stocks',D:'── Demand / Distribution',U:'── Supply',O:'── Other'};
+
+  let h=`<table><thead><tr class="grp"><th rowspan="2">Attribute <span class="ul">(Unit)</span></th>`;
+  dYears.forEach(y=>{ if(y===ly) h+=`<th colspan="2" class="lc">${fmtMY(y)} ← Latest</th>`; else h+=`<th>${fmtMY(y)}</th>`; });
+  h+=`</tr><tr class="hdr">`;
+  dYears.forEach(y=>{ if(y===ly) h+=`<th class="lc">Value</th><th class="lc" style="min-width:66px">vs ${fmtMY(py)}</th>`; else h+=`<th>Value</th>`; });
+  h+=`</tr></thead><tbody>`;
+
+  let lastSec='';
+  sa.forEach(attr=>{
+    const s=sec(attr.name);
+    if(s!==lastSec){h+=`<tr class="sep"><td colspan="${1+dYears.length+1}">${SL[s]||s}</td></tr>`;lastSec=s;}
+    h+=`<tr><td>${attr.name} <span class="ul">(${attr.unit})</span></td>`;
+    dYears.forEach(y=>{
+      const v=getA(y,attr.id);
+      if(y===ly){
+        const vp=getA(py,attr.id);
+        const d=v!=null&&vp!=null?v-vp:null;
+        h+=`<td class="lv">${fmt(v)}</td><td class="${d==null?'dz':d>0?'dp':'dn'}">${d!=null?fmtD(d):'—'}</td>`;
+      }else{
+        h+=`<td>${fmt(v)}</td>`;
+      }
+    });
+    h+=`</tr>`;
+  });
+
+  // World reference rows when not showing world
+  if(!hasWorld){
+    const wIds=[findA('production'),findA('export'),findA('ending stocks')].filter(Boolean);
+    if(wIds.length){
+      h+=`<tr class="sep"><td colspan="${1+dYears.length+1}">── World Reference</td></tr>`;
+      wIds.forEach(id=>{
+        const nm=attrMap[id]||'', wu=aUnit[id]||'';
+        h+=`<tr class="wrow"><td>World ${nm} <span class="ul">(${wu})</span></td>`;
+        dYears.forEach(y=>{
+          const v=getV(y,'WORLD',id);
+          if(y===ly){const vp=getV(py,'WORLD',id);const d=v!=null&&vp!=null?v-vp:null;h+=`<td class="lv">${fmt(v)}</td><td class="${d==null?'dz':d>0?'dp':'dn'}">${d!=null?fmtD(d):'—'}</td>`;}
+          else h+=`<td>${fmt(v)}</td>`;
+        });
+        h+=`</tr>`;
+      });
+    }
+  }
+  h+=`</tbody></table>`;
+  document.getElementById('bsTbl').innerHTML=h;
+
+  const us=[...new Set(sa.map(a=>a.unit).filter(Boolean))];
+  const hasMult=Object.values(aMult).some(m=>m>1);
+  document.getElementById('bsFoot').textContent=`${label}${isMulti?' — Yield = production-weighted avg; Stocks-to-Use = recalculated; all other fields summed':''} · Units: ${us.slice(0,5).join(' / ')}${hasMult?' · Original USDA values ×1,000 — displayed as M (millions)':''}`;
+
+  // ── Also render USA-only balance sheet card ───────────────────
+  const usaHasData = dYears.some(y => sa.some(a => getV(y,'US',a.id)!=null));
+  const usaCard = document.getElementById('bsUSACard');
+  if(usaHasData && usaCard){
+    usaCard.style.display='';
+    document.getElementById('bsUSASub').textContent=`${commName} · United States · Last ${dYears.length} yrs · YoY Δ only for ${fmtMY(ly)}`;
+    document.getElementById('bsUSAChip').textContent=`${sa.length} ATTRIBUTES`;
+
+    const SUPPLY2=['Beginning Stocks','Area Planted','Area Harvested','Yield','Production','Import','Total Supply'];
+    const DEMAND2=['Feed','Food','Industrial','Domestic','Other Use','Distribution','Export','Loss'];
+    const STOCKS2=['Ending Stocks'];
+    function sec2(n){if(STOCKS2.some(x=>n.includes(x)))return'S';if(DEMAND2.some(x=>n.includes(x)))return'D';if(SUPPLY2.some(x=>n.includes(x)))return'U';return'O';}
+
+    let hu=`<table><thead><tr class="grp"><th rowspan="2">Attribute <span class="ul">(Unit)</span></th>`;
+    dYears.forEach(y=>{ if(y===ly) hu+=`<th colspan="2" class="lc">${fmtMY(y)} ← Latest</th>`; else hu+=`<th>${fmtMY(y)}</th>`; });
+    hu+=`</tr><tr class="hdr">`;
+    dYears.forEach(y=>{ if(y===ly) hu+=`<th class="lc">Value</th><th class="lc" style="min-width:66px">vs ${fmtMY(py)}</th>`; else hu+=`<th>Value</th>`; });
+    hu+=`</tr></thead><tbody>`;
+
+    let lastSecU='';
+    sa.forEach(attr=>{
+      const s=sec2(attr.name);
+      if(s!==lastSecU){hu+=`<tr class="sep"><td colspan="${1+dYears.length+1}">${{S:'── Stocks',D:'── Demand / Distribution',U:'── Supply',O:'── Other'}[s]||s}</td></tr>`;lastSecU=s;}
+      hu+=`<tr><td>${attr.name} <span class="ul">(${attr.unit})</span></td>`;
+      dYears.forEach(y=>{
+        const v=getV(y,'US',attr.id);
+        if(y===ly){
+          const vp=getV(py,'US',attr.id);
+          const d=v!=null&&vp!=null?v-vp:null;
+          hu+=`<td class="lv">${fmt(v)}</td><td class="${d==null?'dz':d>0?'dp':'dn'}">${d!=null?fmtD(d):'—'}</td>`;
+        }else{
+          hu+=`<td>${fmt(v)}</td>`;
+        }
+      });
+      hu+=`</tr>`;
+    });
+    hu+=`</tbody></table>`;
+    document.getElementById('bsUSATbl').innerHTML=hu;
+    document.getElementById('bsUSAFoot').textContent=`United States · Units: ${us.slice(0,5).join(' / ')}${hasMult?' · Original USDA values ×1,000 — displayed as M (millions)':''}`;
+  } else if(usaCard){
+    usaCard.style.display='none';
+  }
+}
+
+
+
+
+
+
+
+
+/* ══════════════════════════════════════════════
+   6. MoM REVISION TABLE — US vs World
+   Columns: Attribute | US cur | US prv | US Δ | World cur | World prv | World Δ
+   US: from actual monthly releases (curRelease/prvRelease)
+   World: from actual monthly releases (curRelWorld/prvRelWorld) if available,
+          else annual gData for latest/prior MY
+══════════════════════════════════════════════ */
+
+
+
+/* ══════════════════════════════════════════════════════════════════
+   WASDE AUTO-ROLLING COMPARISON  —  v14
+   ─────────────────────────────────────────────────────────────────
+   BOTH months fully hardcoded from wasde0226.xls (WASDE #668)
+   → Tables render INSTANTLY, no API calls, no loading states.
+
+   AUTO-ROLL (works forever, zero code changes):
+   • On every load, current gData values saved to localStorage
+     tagged  wasde_snap_{year}_{month}_{key}
+   • Prior month column: loaded from localStorage.
+     If missing (first load ever) → use hardcoded Jan 2026.
+   • Current month column: loaded from localStorage.
+     If missing → use hardcoded Feb 2026.
+   • Each month the PSD API updates, gData captures it,
+     localStorage rolls forward automatically.
+   ─────────────────────────────────────────────────────────────────
+   WASDE release schedule embedded — no editing needed through 2028.
+   Jan 2026 + Feb 2026 hardcoded = permanent fallback baseline.
+══════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════
+   PDF — print current page as-is
+══════════════════════════════════════════════ */
+function generatePDF(){
+  window.print();
+}
+
+/* ── Balance-sheet zoom: set CSS zoom on tbl-outer so table fits ──
+   Runs after render. Measures table height vs available card space,
+   sets zoom so the table fills exactly one page without overflow.
+──────────────────────────────────────────────────────────────── */
+function fitBsTable(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card || card.style.display === 'none') return;
+  const tblOuter = card.querySelector('.tbl-outer');
+  if (!tblOuter) return;
+
+  // Reset zoom first so we measure natural height
+  tblOuter.style.zoom = '';
+  const table = tblOuter.querySelector('table');
+  if (!table) return;
+
+  // Available height = page (178mm) - card-head - card-footnote - small buffer
+  const PX_PER_MM = 3.7795;
+  const pageH = 178 * PX_PER_MM;
+  const headH  = (card.querySelector('.card-head')?.offsetHeight || 30);
+  const footH  = (card.querySelector('.card-footnote')?.offsetHeight || 18);
+  const availH = pageH - headH - footH - 8;
+
+  const tableH = table.offsetHeight;
+  if (tableH <= 0) return;
+
+  const zoom = Math.min(availH / tableH, 1);
+  tblOuter.style.zoom = zoom;
+  dbg(`bsZoom ${cardId}: table ${tableH.toFixed(0)}px → zoom ${(zoom*100).toFixed(1)}% (avail ${availH.toFixed(0)}px)`);
+}
+
+function fitCardForPrint(cardId) {
+  // For balance sheet cards use zoom on the table only
+  if (cardId === 'bsCard' || cardId === 'bsUSACard') {
+    fitBsTable(cardId);
+  }
+  // hist cards handled by flex layout — no additional fit needed
+}
+
+
+</script>
+</body>
+</html>
